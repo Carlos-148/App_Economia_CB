@@ -239,7 +239,7 @@ class ContabilidadTab(ttk.Frame):
             self.lbl_capital_detalle.config(text=f"${float(capital_total):.2f}")
             self.lbl_gastos_detalle.config(text=f"${float(gastos_totales):.2f}")
             
-            fondo_total = inversion + dinero_fisico + ganancia_neta
+            fondo_total = inversion + dinero_fisico
             # Fondo total
             self.lbl_fondo_total.config(text=f"${float(fondo_total):.2f}")
             

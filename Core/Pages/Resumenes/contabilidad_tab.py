@@ -28,7 +28,7 @@ class ContabilidadTab(ttk.Frame):
         
         self.setup_ui()
         self.actualizar_datos()
-    
+
     def setup_ui(self):
         """Configura la interfaz"""
         
@@ -210,7 +210,7 @@ class ContabilidadTab(ttk.Frame):
             resumen = self.contabilidad_backend.obtener_resumen_general()
 
             # Obtener capital desde Gastos
-            capital_total = Decimal(str(self.gastos_backend.obtener.capital_total))
+            capital_total = Decimal(str(self.gastos_backend.obtener.capital_total()))
             
             # 3. Extraer valores
             ingresos = Decimal(str(resumen.get('total_ingresos', 0) or 0))

@@ -259,3 +259,36 @@ class GastosBackend:
             return {"money": [], "products": []}
         finally:
             close_connection(conn)
+
+    def obtener_capital_total(self) -> float:
+        """
+        Obtiene capital total SOLO Capital Extra.
+        
+        Este capital es lo que el usuario injected directamente.
+        NO incluye ganancias de ventas.
+        
+        Returns:
+            float: Total de capital extra en sistema
+        """
+        conn = get_connection()
+        if not conn:
+            return 0.0
+        
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT COALESCE(SUM(monto), 0) as total
+                    FROM efectivo_movimientos
+                    WHERE tipo = 'Capital Extra'
+                """)
+                resultado = cursor.fetchone()
+                capital = float(resultado.get('total', 0) or 0)
+                
+                self.logger.info(f"💰 Capital Total (Extra): ${capital:.2f}")
+                return capital
+        
+        except Exception as e:
+            self.logger.error(f"Error obteniendo capital total: {e}")
+            return 0.0
+        finally:
+            close_connection(conn)

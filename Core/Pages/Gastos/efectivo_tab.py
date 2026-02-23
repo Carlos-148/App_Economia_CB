@@ -97,30 +97,7 @@ class EfectivoTab(ttk.Frame):
             font=("Segoe UI", 9, "bold"), padx=15
         ).pack(side=tk.LEFT, fill=tk.X, expand=True)
         
-        # Capital ganado (de ventas/ganancias)
-        ganancia_label = StyledLabel(
-            entrada_frame,
-            text="Capital Ganado (Ganancias de ventas):",
-            label_type="normal",
-            theme_name=self.theme_name
-        )
-        ganancia_label.pack(anchor="w", pady=(10, 5))
-        
-        ganancia_frame = BaseFrame(entrada_frame, theme_name=self.theme_name)
-        ganancia_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        self.entry_capital_ganado = StyledEntry(ganancia_frame, theme_name=self.theme_name, width=20)
-        self.entry_capital_ganado.pack(side=tk.LEFT, padx=(0, 10))
-        self.entry_capital_ganado.bind("<Return>", lambda e: self.registrar_ganancia())
-        
-        tk.Button(
-            ganancia_frame,
-            text="📈 Registrar",
-            command=self.registrar_ganancia,
-            bg="#17a2b8", fg="white", relief="flat", cursor="hand2", bd=0,
-            font=("Segoe UI", 9, "bold"), padx=15
-        ).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
+
         # ============================================
         # SECCIÓN 2: CONTADOR DE BILLETES
         # ============================================
@@ -306,33 +283,6 @@ class EfectivoTab(ttk.Frame):
             logger.error(f"Error agregando capital: {e}")
             messagebox.showerror("Error", str(e)[:100])
     
-    def registrar_ganancia(self):
-        """Registra ganancia de ventas"""
-        try:
-            valor = self.entry_capital_ganado.get().strip()
-            if not valor:
-                messagebox.showwarning("Aviso", "Ingresa un monto")
-                return
-            
-            monto = Decimal(valor)
-            if monto <= 0:
-                raise ValueError("Monto debe ser mayor a 0")
-            
-            self.capital_sistema += monto
-            
-            self.registrar_movimiento("Ganancia Venta", float(monto))
-            self.entry_capital_ganado.delete(0, END)
-            self.actualizar_ui()
-            
-            messagebox.showinfo("✅", f"Ganancia registrada: ${float(monto):.2f}")
-            logger.info(f"✅ Ganancia registrada: ${float(monto):.2f}")
-        
-        except ValueError as e:
-            messagebox.showerror("Error", str(e))
-        except Exception as e:
-            logger.error(f"Error registrando ganancia: {e}")
-            messagebox.showerror("Error", str(e)[:100])
-    
     def actualizar_total_billetes(self):
         """Actualiza el total de billetes contados"""
         total = Decimal(0)
@@ -414,7 +364,7 @@ class EfectivoTab(ttk.Frame):
                 cursor.execute("""
                     SELECT COALESCE(SUM(monto), 0) as total
                     FROM efectivo_movimientos
-                    WHERE tipo IN ('Capital Extra', 'Ganancia Venta')
+                    WHERE tipo IN ('Capital Extra')
                 """)
                 
                 resultado = cursor.fetchone()

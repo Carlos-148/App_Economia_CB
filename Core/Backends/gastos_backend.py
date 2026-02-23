@@ -292,3 +292,38 @@ class GastosBackend:
             return 0.0
         finally:
             close_connection(conn)
+
+    def obtener_gastos_compras(self) -> float:
+        """
+        Obtiene SOLO los gastos de compras (dinero invertido en productos).
+        
+        NO incluye gastos operacionales.
+        SOLO aquellos registrados como "Compra: ..." desde compras_backend.
+        
+        Returns:
+            float: Total de dinero gastado en compras de productos
+        """
+        conn = get_connection()
+        if not conn:
+            return 0.0
+        
+        try:
+            with conn.cursor() as cursor:
+                # Obtener SOLO gastos que vengan de compras
+                # (tienen descripción que empieza con "Compra:")
+                cursor.execute("""
+                    SELECT COALESCE(SUM(monto), 0) AS total 
+                    FROM gastos_money 
+                    WHERE descripcion LIKE 'Compra:%'
+                """)
+                resultado = cursor.fetchone()
+                gastos_compras = float(resultado.get('total', 0) or 0)
+                
+                self.logger.info(f"💳 Gastos en Compras: ${gastos_compras:.2f}")
+                return gastos_compras
+        
+        except Exception as e:
+            self.logger.error(f"Error obteniendo gastos de compras: {e}")
+            return 0.0
+        finally:
+            close_connection(conn)

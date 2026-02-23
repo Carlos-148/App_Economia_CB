@@ -80,19 +80,17 @@ class ComprasBackend:
                         f"✓ Compra granel guardada: {nombre}, "
                         f"{cantidad} {unidad}, ${precio_total:.2f}"
                     )
-                
-                # ✅ NUEVO: Registrar gasto monetario vinculado
-                try:
-                    from Core.Backends.gastos_backend import GastosBackend
-                    gastos_b = GastosBackend()
-                    gastos_b.add_gasto_dinero(
-                        descripcion=f"Compra: {nombre}",
-                        monto=precio_total,
-                        comentario=f"Compra de {cantidad}{unidad} a {proveedor}"
-                    )
-                    self.logger.info(f"✓ Compra registrada como gasto: ${precio_total:.2f}")
-                except Exception as e:
-                    self.logger.warning(f"⚠️ No se pudo registrar gasto de compra: {e}")
+                    
+                    # ✅ Registrar gasto monetario vinculado
+                    try:
+                        self.gastos_backend.add_gasto_dinero(
+                            descripcion=f"Compra: {nombre}",
+                            monto=precio_total,
+                            comentario=f"Compra de {cantidad}{unidad} a {proveedor}"
+                        )
+                        self.logger.info(f"✓ Compra registrada como gasto: ${precio_total:.2f}")
+                    except Exception as e:
+                        self.logger.warning(f"⚠️ No se pudo registrar gasto de compra: {e}")
 
                 elif tipo == "paquetes":
                     cantidad_paq = int(cantidad_paq)
@@ -122,20 +120,17 @@ class ComprasBackend:
                         f"{cantidad_paq} paquetes, ${precio_paq:.2f} c/u"
                     )
 
-                    # ✅ NUEVO: Registrar gasto monetario vinculado
+                    # ✅ Registrar gasto monetario vinculado
                     try:
-                        from Core.Backends.gastos_backend import GastosBackend
-                        gastos_b = GastosBackend()
-                        gastos_b.add_gasto_dinero(
+                        self.gastos_backend.add_gasto_dinero(
                             descripcion=f"Compra: {nombre}",
                             monto=precio_total,
-                            comentario=f"Compra de {cantidad}{unidad} a {proveedor}"
+                            comentario=f"Compra de {cantidad_total_peso}{unidad_peso} a {proveedor}"
                         )
                         self.logger.info(f"✓ Compra registrada como gasto: ${precio_total:.2f}")
                     except Exception as e:
                         self.logger.warning(f"⚠️ No se pudo registrar gasto de compra: {e}")
 
-                
                 else:
                     raise ValueError("Tipo de compra inválido")
             

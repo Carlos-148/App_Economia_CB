@@ -210,7 +210,9 @@ class ContabilidadTab(ttk.Frame):
             resumen = self.contabilidad_backend.obtener_resumen_general()
 
             # Obtener capital desde Gastos
-            capital_total = Decimal(str(self.gastos_backend.obtener.capital_total()))
+            capital_total = Decimal(str(self.gastos_backend.obtener_capital_total()))
+
+            gastos_totales = Decimal(str(self.gastos_backend.get_total_gastos()))
             
             # 3. Extraer valores
             ingresos = Decimal(str(resumen.get('total_ingresos', 0) or 0))
@@ -220,13 +222,14 @@ class ContabilidadTab(ttk.Frame):
 
             ganancia_calculada = ingresos - costos_productos_vendidos
             
- 
-            fondo_total = inversion + capital_total + ganancia_neta
+            gastos_compras = Decimal(str(self.gastos_backend.obtener_gastos_compras()))
+
+            
             
             # ===========================================
             # ==== NUEVA UI DINERO FISICO              
             # ===========================================
-            dinero_fisico = capital_total + costos_productos_vendidos
+            dinero_fisico = capital_total + costos_productos_vendidos - gastos_compras
 
             color_dinero = "#00a86b" if dinero_fisico >= 0 else "#ff6b6b"
             self.lbl_dinero_fisico.config(
@@ -236,9 +239,12 @@ class ContabilidadTab(ttk.Frame):
             self.lbl_capital_detalle.config(text=f"${float(capital_total):.2f}")
             self.lbl_gastos_detalle.config(text=f"${float(gastos_totales):.2f}")
             
+            fondo_total = inversion + dinero_fisico + ganancia_neta
             # Fondo total
             self.lbl_fondo_total.config(text=f"${float(fondo_total):.2f}")
             
+            
+
 
             # ============================================
             # ACTUALIZAR UI

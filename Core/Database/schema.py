@@ -318,7 +318,7 @@ class DatabaseSchema:
         dinero_fisico DECIMAL(12,2) NOT NULL,
         fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         
-        INDEX idx_fecha (fecha)
+        INDEX idx_fecha (fecha_actualizacion)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """
 

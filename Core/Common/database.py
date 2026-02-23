@@ -524,3 +524,35 @@ def archive_and_reset_weekly(backup_base_folder: str = None) -> str:
     
     finally:
         close_connection(conn)
+
+def revisar_setup_completado() -> bool:
+    """
+    Verifica si el setup inicial ya fue completado.
+    
+    Returns:
+        bool: True si hay datos iniciales, False si es primer uso
+    """
+    conn = get_connection()
+    if not conn:
+        return False
+    
+    try:
+        with conn.cursor() as cursor:
+            # Verificar si hay capital en la tabla
+            cursor.execute("""
+                SELECT COUNT(*) as total
+                FROM efectivo_movimientos
+                LIMIT 1
+            """)
+            
+            resultado = cursor.fetchone()
+            tiene_datos = resultado.get('total', 0) > 0
+            
+            return tiene_datos
+    
+    except Exception as e:
+        logger.error(f"Error verificando setup: {e}")
+        return False
+    
+    finally:
+        close_connection(conn)

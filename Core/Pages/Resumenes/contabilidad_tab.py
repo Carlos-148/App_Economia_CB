@@ -209,11 +209,15 @@ class ContabilidadTab(ttk.Frame):
             # 2. Resumen de ventas
             resumen = self.contabilidad_backend.obtener_resumen_general()
 
-            # Obtener capital desde Gastos
+                       # Obtener capital desde Gastos
             capital_total = Decimal(str(self.gastos_backend.obtener_capital_total()))
-
+            
+            # Obtener gastos totales (para referencia)
             gastos_totales = Decimal(str(self.gastos_backend.get_total_gastos()))
             
+            # Obtener gastos de COMPRAS (para dinero_fisico) ✅ NUEVO
+            gastos_compras = Decimal(str(self.gastos_backend.obtener_gastos_compras()))
+
             # 3. Extraer valores
             ingresos = Decimal(str(resumen.get('total_ingresos', 0) or 0))
             costos_productos_vendidos = Decimal(str(resumen.get('total_costos', 0) or 0))
@@ -227,38 +231,67 @@ class ContabilidadTab(ttk.Frame):
             
             
             # ===========================================
-            # ==== NUEVA UI DINERO FISICO              
+            # ==== DINERO FISICO (Dinero disponible)   
             # ===========================================
-            dinero_fisico = capital_total + costos_productos_vendidos - gastos_compras
+            # Dinero Físico = Capital + Costo de Productos Vendidos - Gastos de Compras ✅ NUEVO
+            dinero_fisico_calculado = capital_total + costos_productos_vendidos - gastos_compras
+            
+            # ✅ NO PERMITIR QUE DINERO FÍSICO SEA NEGATIVO EN PANTALLA
+            # Si es negativo, mostrar 0 pero mantener el valor real internamente
+            dinero_fisico = max(dinero_fisico_calculado, Decimal(0))
+            dinero_fisico_real = dinero_fisico_calculado  # Para lógica interna
+            
+            # Determinar color basado en estado ✅ NUEVO
+            if dinero_fisico_real < 0:
+                color_dinero = "#ff6b6b"  # Rojo: dinero en rojo
+                estado_dinero = f"${float(dinero_fisico_real):.2f} (DÉFICIT)"
+            elif dinero_fisico_real == 0:
+                color_dinero = "#ffc107"  # Amarillo: cuidado
+                estado_dinero = "$0.00 (SIN FONDOS)"
+            else:
+                color_dinero = "#00a86b"  # Verde: bien
+                estado_dinero = f"${float(dinero_fisico_real):.2f}"
 
-            color_dinero = "#00a86b" if dinero_fisico >= 0 else "#ff6b6b"
             self.lbl_dinero_fisico.config(
-                text=f"${float(dinero_fisico):.2f}",
+                text=estado_dinero,
                 fg=color_dinero
             )
             self.lbl_capital_detalle.config(text=f"${float(capital_total):.2f}")
-            self.lbl_gastos_detalle.config(text=f"${float(gastos_totales):.2f}")
+            self.lbl_gastos_detalle.config(text=f"${float(gastos_compras):.2f}")  # ✅ CAMBIO
             
-            fondo_total = inversion + dinero_fisico
-            # Fondo total
-            self.lbl_fondo_total.config(text=f"${float(fondo_total):.2f}")
+            # ===========================================
+            # ==== INVERSIÓN TOTAL (CORREGIDA) ✅ NUEVO
+            # ===========================================
+            # Inversión Total = Stock en Almacén + Dinero Físico Disponible
+            # Esto refleja todo lo que la empresa tiene invertido
+            #inversion_total = inversion + dinero_fisico_real
+            if dinero_fisico_real > 0:
+                inversion_total = inversion + dinero_fisico_real
+            else:
+                inversion_total = inversion
+            # ===========================================
+            # ==== FONDO TOTAL DEL NEGOCIO ✅ NUEVO
+            # ===========================================
+            # Fondo Total = Inversión Total + Ganancia Neta
+            # fondo_total = inversion_total
             
-            
+            # # Actualizar UI
+            # self.lbl_fondo_total.config(text=f"${float(fondo_total):.2f}")
 
 
-            # ============================================
-            # ACTUALIZAR UI
+             # ============================================
+            # ACTUALIZAR UI - KPIs ✅ ACTUALIZADO
             # ============================================
             
-            self.kpi_widgets["inversion"].config(text=f"${float(inversion):.2f}")
+            self.kpi_widgets["inversion"].config(text=f"${float(inversion):.2f}")  # ✅ CAMBIO
             self.kpi_widgets["ingresos"].config(text=f"${float(ingresos):.2f}")
             self.kpi_widgets["costos"].config(text=f"${float(costos_productos_vendidos):.2f}")
             self.kpi_widgets["ganancia"].config(text=f"${float(ganancia_neta):.2f}")
             self.kpi_widgets["margen"].config(text=f"{float(margen):.1f}%")
             
-            self.lbl_capital.config(text=f"${float(self.capital_adicional):.2f}")
-            self.lbl_fondo_total.config(text=f"${float(fondo_total):.2f}")
-            
+            self.lbl_capital.config(text=f"${float(capital_total):.2f}")  # ✅ CAMBIO
+            self.lbl_fondo_total.config(text=f"${float(inversion_total):.2f}")
+
             # Actualizar tablas
             self._actualizar_tabla_tipo()
             self._actualizar_tabla_producto()
@@ -266,13 +299,16 @@ class ContabilidadTab(ttk.Frame):
             
             logger.info(
                 f"✅ Datos de contabilidad actualizados:\n"
-                f"   Inversión: ${float(inversion):.2f}\n"
+                f"   Capital Total: ${float(capital_total):.2f}\n"
+                f"   Costos Productos Vendidos: ${float(costos_productos_vendidos):.2f}\n"
+                f"   Gastos de Compras: ${float(gastos_compras):.2f}\n"
+                f"   Dinero Físico: ${float(dinero_fisico_real):.2f}\n"
+                f"   Inversión en Almacén: ${float(inversion):.2f}\n"
+                f"   Inversión Total: ${float(inversion_total):.2f}\n"
                 f"   Ingresos: ${float(ingresos):.2f}\n"
-                f"   Costos: ${float(costos_productos_vendidos):.2f}\n"
                 f"   Ganancia Neta: ${float(ganancia_neta):.2f}\n"
-                f"   Fondo Total: ${float(fondo_total):.2f}"
+                #f"   Fondo Total: ${float(fondo_total):.2f}"
             )
-        
         except Exception as e:
             logger.error(f"Error: {e}")
             import traceback

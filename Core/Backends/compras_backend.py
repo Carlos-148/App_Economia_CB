@@ -1,7 +1,7 @@
 """
 Core.Backends.compras_backend - Gestión de compras
 """
-
+from decimal import Decimal
 from typing import List, Dict, Optional
 from Core.Common.database import get_connection, close_connection
 from Core.Common.logger import setup_logger
@@ -81,6 +81,28 @@ class ComprasBackend:
                         f"{cantidad} {unidad}, ${precio_total:.2f}"
                     )
                     
+                    # ✅ Validar si se puede realizar la compra
+                    puede_comprar, alerta = self.puede_realizar_compra(precio_total)
+                    
+                    # ❌ BLOQUEAR si no hay fondos
+                    if not puede_comprar:
+                        if alerta == "BLOQUEADO":
+                            raise ValueError(
+                                "❌ NO SE PUEDE COMPRAR: Dinero físico en $0.00\n"
+                                "Ingresa más capital para continuar comprando."
+                            )
+                        elif alerta == "INSUFICIENTE":
+                            raise ValueError(
+                                f"❌ NO SE PUEDE COMPRAR: Dinero insuficiente\n"
+                                f"Se necesita ${precio_total:.2f} pero solo hay ${dinero_disponible:.2f}"
+                            )
+                    
+                    # ⚠️ ALERTAS si todo está bien pero hay poca cantidad
+                    elif alerta == "WARNING":
+                        self.logger.warning(
+                            f"⚠️ ALERTA: Dinero físico bajo para esta compra"
+                        )
+
                     # ✅ Registrar gasto monetario vinculado
                     try:
                         self.gastos_backend.add_gasto_dinero(
@@ -119,6 +141,29 @@ class ComprasBackend:
                         f"✓ Compra paquetes guardada: {nombre}, "
                         f"{cantidad_paq} paquetes, ${precio_paq:.2f} c/u"
                     )
+
+
+                    # ✅ Validar si se puede realizar la compra
+                    puede_comprar, alerta = self.puede_realizar_compra(precio_total)
+                    
+                    # ❌ BLOQUEAR si no hay fondos
+                    if not puede_comprar:
+                        if alerta == "BLOQUEADO":
+                            raise ValueError(
+                                "❌ NO SE PUEDE COMPRAR: Dinero físico en $0.00\n"
+                                "Ingresa más capital para continuar comprando."
+                            )
+                        elif alerta == "INSUFICIENTE":
+                            raise ValueError(
+                                f"❌ NO SE PUEDE COMPRAR: Dinero insuficiente\n"
+                                f"Se necesita ${precio_total:.2f} pero solo hay ${dinero_disponible:.2f}"
+                            )
+                    
+                    # ⚠️ ALERTAS si todo está bien pero hay poca cantidad
+                    elif alerta == "WARNING":
+                        self.logger.warning(
+                            f"⚠️ ALERTA: Dinero físico bajo para esta compra"
+                        )
 
                     # ✅ Registrar gasto monetario vinculado
                     try:
@@ -227,3 +272,58 @@ class ComprasBackend:
             return []
         finally:
             close_connection(conn)
+
+    def puede_realizar_compra(self, precio_total: float) -> tuple:
+        """
+        Valida si se puede realizar una compra.
+        
+        BLOQUEA compras cuando dinero_fisico <= 0
+        
+        Args:
+            precio_total: Monto de la compra
+            
+        Returns:
+            tuple: (puede_comprar: bool, mensaje_alerta: str)
+                - puede_comprar: False si dinero <= 0
+                - puede_comprar: True si hay fondos
+                - mensaje_alerta: Razón del bloqueo
+        """
+        try:
+            # Obtener dinero físico actual
+            capital_total = self.gastos_backend.obtener_capital_total()
+            gastos_compras = self.gastos_backend.obtener_gastos_compras()
+            
+            # Calcular dinero físico
+            dinero_fisico = capital_total - gastos_compras
+            
+            # ✅ VALIDACIÓN: Si dinero_fisico <= 0, BLOQUEAR compra
+            if dinero_fisico <= 0:
+                return (
+                    False,  # ❌ NO se puede comprar
+                    "BLOQUEADO"  # Dinero en 0, compras bloqueadas
+                )
+            
+            # Si hay dinero pero poco
+            elif dinero_fisico < precio_total:
+                return (
+                    False,  # ❌ NO hay suficiente dinero
+                    "INSUFICIENTE"  # No alcanza el dinero
+                )
+            
+            # Si hay dinero pero está bajo (menos de 1.5x la compra)
+            elif dinero_fisico < precio_total * 1.5:
+                return (
+                    True,  # ✅ Se puede comprar
+                    "WARNING"  # Pero con alerta
+                )
+            
+            # Todo bien
+            else:
+                return (
+                    True,  # ✅ Se puede comprar
+                    ""  # Sin alertas
+                )
+        
+        except Exception as e:
+            self.logger.error(f"Error validando compra: {e}")
+            return (True, "")

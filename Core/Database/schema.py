@@ -310,6 +310,18 @@ class DatabaseSchema:
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """
 
+    DINERO_FISICO_TABLE = """
+    CREATE TABLE IF NOT EXISTS dinero_fisico (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        capital_total DECIMAL(12,2) NOT NULL,
+        gastos_totales DECIMAL(12,2) NOT NULL,
+        dinero_fisico DECIMAL(12,2) NOT NULL,
+        fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        
+        INDEX idx_fecha (fecha)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """
+
     
     # Lista de todas las tablas
     TABLES = [
@@ -330,6 +342,7 @@ class DatabaseSchema:
         ("contabilidad", CONTABILIDAD_TABLE),
         ("efectivo_movimientos", EFECTIVO_MOVIMIENTOS_TABLE),
         ("efectivo_contador", EFECTIVO_CONTADOR_TABLE),
+        ("dinero_fisico", DINERO_FISICO_TABLE),
     ]
     
     @classmethod

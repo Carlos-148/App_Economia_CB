@@ -10,6 +10,7 @@ from typing import Dict, List
 
 from Core.Backends.contabilidad_backend import ContabilidadBackend
 from Core.Backends.inventario_backend import InventarioBackend
+from Core.Backends.gastos_backend import GastosBackend
 from Core.Common.logger import setup_logger
 
 logger = setup_logger()
@@ -22,6 +23,7 @@ class ContabilidadTab(ttk.Frame):
         super().__init__(parent)
         self.contabilidad_backend = ContabilidadBackend()
         self.inv_backend = InventarioBackend()
+        self.gastos_backend = GastosBackend()
         self.capital_adicional = Decimal(0)
         
         self.setup_ui()
@@ -83,6 +85,45 @@ class ContabilidadTab(ttk.Frame):
         self.lbl_capital.pack(side=tk.LEFT, padx=10)
         
         # ✅ SOLO VISUALIZACIÓN - sin entry
+        # ============================================
+        # NUEVA SECCIÓN: DINERO EN FÍSICO
+        # ============================================
+        ttk.Separator(left_panel, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=15)
+
+        dinero_fis_title = tk.Label(
+            left_panel,
+            text="💵 DINERO EN FÍSICO",
+            font=("Segoe UI", 12, "bold"),
+            bg="white",
+            fg="#1a1a2e"
+        )
+        dinero_fis_title.pack(anchor="w", pady=(10, 10))
+
+        dinero_fis_frame = tk.Frame(left_panel, bg="white")
+        dinero_fis_frame.pack(fill=tk.X, pady=8)
+
+        tk.Label(dinero_fis_frame, text="Disponible:", font=("Segoe UI", 10), bg="white").pack(side=tk.LEFT)
+        self.lbl_dinero_fisico = tk.Label(
+            dinero_fis_frame, 
+            text="$0.00", 
+            font=("Segoe UI", 11, "bold"), 
+            bg="white", 
+            fg="#00a86b"
+        )
+        self.lbl_dinero_fisico.pack(side=tk.LEFT, padx=10)
+
+        # Detalles
+        detalles_frame = tk.Frame(left_panel, bg="#f9f9f9", relief=tk.SUNKEN, bd=1)
+        detalles_frame.pack(fill=tk.X, pady=(10, 0), padx=5)
+
+        tk.Label(detalles_frame, text="Capital total:", font=("Segoe UI", 9), bg="#f9f9f9").pack(anchor="w", padx=8, pady=(8, 2))
+        self.lbl_capital_detalle = tk.Label(detalles_frame, text="$0.00", font=("Segoe UI", 9), bg="#f9f9f9", fg="#0066cc")
+        self.lbl_capital_detalle.pack(anchor="w", padx=20, pady=2)
+
+        tk.Label(detalles_frame, text="Gastos totales:", font=("Segoe UI", 9), bg="#f9f9f9").pack(anchor="w", padx=8, pady=(8, 2))
+        self.lbl_gastos_detalle = tk.Label(detalles_frame, text="$0.00", font=("Segoe UI", 9), bg="#f9f9f9", fg="#ff6b6b")
+        self.lbl_gastos_detalle.pack(anchor="w", padx=20, pady=(2, 8))
+
         # Botones
         ttk.Separator(left_panel, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=15)
         
@@ -167,25 +208,38 @@ class ContabilidadTab(ttk.Frame):
             
             # 2. Resumen de ventas
             resumen = self.contabilidad_backend.obtener_resumen_general()
+
+            # Obtener capital desde Gastos
+            capital_total = Decimal(str(self.gastos_backend.obtener.capital_total))
             
             # 3. Extraer valores
             ingresos = Decimal(str(resumen.get('total_ingresos', 0) or 0))
             costos_productos_vendidos = Decimal(str(resumen.get('total_costos', 0) or 0))
             ganancia_neta = Decimal(str(resumen.get('total_ganancia', 0) or 0))
             margen = Decimal(str(resumen.get('margen_promedio', 0) or 0))
-            
-            # ============================================
-            # CÁLCULOS CORRECTOS
-            # ============================================
-            
-            # GANANCIA NETA = Ingresos totales - Costo de productos vendidos
-            # (Ya viene correctamente calculada de la BD)
+
             ganancia_calculada = ingresos - costos_productos_vendidos
             
-            # FONDO TOTAL = Capital inicial + Capital adicional + Ganancia neta - Inversión en stock
-            # O mejor: Capital total disponible + Stock en almacén + Ganancia
-            fondo_total = inversion + self.capital_adicional + ganancia_neta
+ 
+            fondo_total = inversion + capital_total + ganancia_neta
             
+            # ===========================================
+            # ==== NUEVA UI DINERO FISICO              
+            # ===========================================
+            dinero_fisico = capital_total + costos_productos_vendidos
+
+            color_dinero = "#00a86b" if dinero_fisico >= 0 else "#ff6b6b"
+            self.lbl_dinero_fisico.config(
+                text=f"${float(dinero_fisico):.2f}",
+                fg=color_dinero
+            )
+            self.lbl_capital_detalle.config(text=f"${float(capital_total):.2f}")
+            self.lbl_gastos_detalle.config(text=f"${float(gastos_totales):.2f}")
+            
+            # Fondo total
+            self.lbl_fondo_total.config(text=f"${float(fondo_total):.2f}")
+            
+
             # ============================================
             # ACTUALIZAR UI
             # ============================================

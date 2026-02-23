@@ -1,0 +1,189 @@
+"""
+Core.Pages.Productos.intercambios_tab - Gestión de intercambios
+"""
+
+import tkinter as tk
+import tkinter as tk
+from tkinter import messagebox, END, ttk, messagebox
+
+from Core.Backends.inventario_backend import InventarioBackend
+from Core.Common.units import get_unit_choices
+
+
+class IntercambiosTab(ttk.Frame):
+    """Tab de intercambios de productos"""
+    
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.inv_backend = InventarioBackend()
+        self.entregados = []
+        self.setup_ui()
+        self.load_productos()
+    
+    def setup_ui(self):
+        """Configura la interfaz"""
+        frame = ttk.Frame(self)
+        frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        ttk.Label(frame, text="Intercambio de Productos", font=("Segoe UI", 14, "bold")).pack(pady=4)
+        
+        # Recibido
+        card = ttk.LabelFrame(frame, text="Producto Recibido")
+        card.pack(fill=tk.X, pady=(8, 10), padx=3)
+        
+        ttk.Label(card, text="Producto:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        self.recibido_combo = ttk.Combobox(card, values=[], width=32)
+        self.recibido_combo.grid(row=0, column=1, pady=2, sticky=tk.W)
+        
+        ttk.Button(card, text="Nuevo", command=self._dialog_nuevo_producto).grid(row=0, column=2, padx=6)
+        
+        ttk.Label(card, text="Cantidad:").grid(row=1, column=0)
+        self.recibido_cant = ttk.Entry(card, width=12)
+        self.recibido_cant.grid(row=1, column=1, sticky=tk.W)
+        
+        ttk.Label(card, text="Unidad:").grid(row=1, column=2)
+        self.recibido_unidad = ttk.Combobox(card, values=get_unit_choices(), width=10)
+        self.recibido_unidad.grid(row=1, column=3)
+        
+        ttk.Label(card, text="Comentario:").grid(row=2, column=0, pady=2)
+        self.recibido_comentario = ttk.Entry(card, width=40)
+        self.recibido_comentario.grid(row=2, column=1, columnspan=3)
+        
+        # Entregado
+        entregados_frame = ttk.LabelFrame(frame, text="Producto(s) Entregado(s)")
+        entregados_frame.pack(fill=tk.X, pady=(8, 10), padx=3)
+        
+        ttk.Label(entregados_frame, text="Producto:").grid(row=0, column=0, pady=2)
+        self.entregado_combo = ttk.Combobox(entregados_frame, values=[], width=30)
+        self.entregado_combo.grid(row=0, column=1)
+        
+        ttk.Label(entregados_frame, text="Cantidad:").grid(row=1, column=0)
+        self.entregado_cant = ttk.Entry(entregados_frame, width=12)
+        self.entregado_cant.grid(row=1, column=1)
+        
+        ttk.Label(entregados_frame, text="Unidad:").grid(row=1, column=2)
+        self.entregado_unidad = ttk.Combobox(entregados_frame, values=get_unit_choices(), width=10)
+        self.entregado_unidad.grid(row=1, column=3)
+        
+        ttk.Button(entregados_frame, text="Añadir", command=self.add_entregado).grid(row=2, column=3, pady=4, padx=3)
+        
+        self.entregados_tree = ttk.Treeview(
+            entregados_frame,
+            columns=("Producto", "Cantidad", "Unidad"),
+            show="headings",
+            height=4
+        )
+        
+        for c in ("Producto", "Cantidad", "Unidad"):
+            self.entregados_tree.heading(c, text=c)
+        
+        self.entregados_tree.grid(row=3, column=0, columnspan=4, padx=3, pady=5, sticky="nsew")
+        
+        ttk.Button(entregados_frame, text="Eliminar", command=self.remove_entregado).grid(row=4, column=3, pady=4)
+        
+        ttk.Button(frame, text="✅ Registrar Intercambio", command=self.registrar_intercambio).pack(pady=12, fill=tk.X)
+    
+    def load_productos(self):
+        """Carga productos"""
+        productos = [p['producto'] for p in self.inv_backend.get_inventario_para_resumen()]
+        self.recibido_combo['values'] = productos
+        self.entregado_combo['values'] = productos
+    
+    def _dialog_nuevo_producto(self):
+        """Crea nuevo producto"""
+        win = tk.Toplevel(self)
+        win.title("Nuevo Producto")
+        
+        ttk.Label(win, text="Nombre:").pack(padx=10, pady=4)
+        name_entry = ttk.Entry(win)
+        name_entry.pack(padx=10, pady=4)
+        
+        def create():
+            nombre = name_entry.get().strip()
+            
+            if not nombre:
+                return
+            
+            self.recibido_combo['values'] = list(self.recibido_combo['values']) + [nombre]
+            self.recibido_combo.set(nombre)
+            win.destroy()
+        
+        ttk.Button(win, text="Agregar", command=create).pack(padx=10, pady=6)
+        win.transient(self.winfo_toplevel())
+        win.grab_set()
+    
+    def add_entregado(self):
+        """Agrega producto entregado"""
+        prod = self.entregado_combo.get().strip()
+        cant = self.entregado_cant.get().strip()
+        unidad = self.entregado_unidad.get().strip()
+        
+        if not prod or not cant or not unidad:
+            messagebox.showwarning("Aviso", "Completa todos los campos")
+            return
+        
+        try:
+            cant_f = float(cant)
+        except ValueError:
+            messagebox.showerror("Error", "Cantidad inválida")
+            return
+        
+        self.entregados.append({'producto': prod, 'cantidad': cant_f, 'unidad': unidad})
+        self.entregados_tree.insert('', tk.END, values=(prod, cant_f, unidad))
+        
+        self.entregado_combo.set("")
+        self.entregado_cant.delete(0, tk.END)
+        self.entregado_unidad.set("")
+    
+    def remove_entregado(self):
+        """Elimina producto entregado"""
+        sel = self.entregados_tree.selection()
+        
+        if not sel:
+            return
+        
+        index = self.entregados_tree.index(sel[0])
+        self.entregados_tree.delete(sel[0])
+        del self.entregados[index]
+    
+    def registrar_intercambio(self):
+        """Registra intercambio"""
+        # Consumir entregados
+        for e in self.entregados:
+            try:
+                self.inv_backend.consumir_stock(e['producto'], e['cantidad'], e['unidad'])
+            except Exception as ex:
+                messagebox.showerror("Error", f"Error: {ex}")
+                return
+        
+        # Sumar recibido
+        prod_rec = self.recibido_combo.get().strip()
+        cant_rec = self.recibido_cant.get().strip()
+        unidad_rec = self.recibido_unidad.get().strip()
+        
+        if not prod_rec or not cant_rec or not unidad_rec:
+            messagebox.showwarning("Aviso", "Completa campos de recibido")
+            return
+        
+        try:
+            cant_f = float(cant_rec)
+        except ValueError:
+            messagebox.showerror("Error", "Cantidad inválida")
+            return
+        
+        try:
+            self.inv_backend.actualizar_stock_desde_compra(prod_rec, cant_f, unidad_rec, 0.0)
+            messagebox.showinfo(
+                "✅ OK",
+                f"Intercambio registrado\n"
+                f"Recibido: {cant_f} {unidad_rec} de '{prod_rec}'\n"
+                f"Entregados: {len(self.entregados)} productos"
+            )
+            
+            self.recibido_cant.delete(0, tk.END)
+            self.recibido_unidad.set("")
+            self.entregados.clear()
+            self.entregados_tree.delete(*self.entregados_tree.get_children())
+            self.load_productos()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error: {e}")

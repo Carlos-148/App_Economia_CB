@@ -1,0 +1,75 @@
+"""
+Core.Pages.Resumenes.inventario_tab - Tab de inventario
+"""
+
+import tkinter as tk
+from tkinter import ttk, messagebox, END 
+
+
+class InventarioTab(ttk.Frame):
+    """Tab de inventario"""
+    
+    def __init__(self, parent, backend):
+        super().__init__(parent)
+        self.backend = backend
+        self.setup_ui()
+    
+    def setup_ui(self):
+        """Configura la interfaz"""
+        inv_frame = ttk.Frame(self)
+        inv_frame.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
+        
+        ttk.Label(inv_frame, text="📦 Inventario", font=("Arial", 14, "bold")).pack(pady=5)
+        
+        columns = ("Producto", "Cantidad", "Unidad", "Costo", "Total")
+        self.inv_tree = ttk.Treeview(inv_frame, columns=columns, show="headings", height=15)
+        
+        for c in columns:
+            self.inv_tree.heading(c, text=c)
+        
+        self.inv_tree.column("Producto", width=150)
+        self.inv_tree.column("Cantidad", width=100)
+        self.inv_tree.column("Unidad", width=100)
+        self.inv_tree.column("Costo", width=100)
+        self.inv_tree.column("Total", width=100)
+        
+        self.inv_tree.pack(fill=tk.BOTH, expand=True)
+        
+        scrollbar = ttk.Scrollbar(inv_frame, orient=tk.VERTICAL, command=self.inv_tree.yview)
+        self.inv_tree.configure(yscroll=scrollbar.set)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        total_frame = tk.Frame(self)
+        total_frame.pack(pady=10, padx=10, fill=tk.X)
+        
+        self.total_label = tk.Label(total_frame, text="Total: $0.00", font=("Arial", 12, "bold"))
+        self.total_label.pack()
+        
+        ttk.Button(self, text="🔄 Actualizar", command=self.load_inventario).pack(pady=5)
+        
+        self.load_inventario()
+    
+    def load_inventario(self):
+        """Carga inventario"""
+        for item in self.inv_tree.get_children():
+            self.inv_tree.delete(item)
+        
+        inventario_data = self.backend.get_inventario_para_resumen()
+        
+        total_invertido = 0
+        
+        for item in inventario_data:
+            self.inv_tree.insert(
+                "",
+                tk.END,
+                values=(
+                    item["producto"],
+                    item["cantidad_display"],
+                    item["unidad_display"],
+                    item["costo_promedio_display"],
+                    f"${item['total_valor']:.2f}",
+                ),
+            )
+            total_invertido += item["total_valor"]
+        
+        self.total_label.config(text=f"Total Invertido: ${total_invertido:.2f}")

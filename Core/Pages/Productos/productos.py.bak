@@ -1,0 +1,30 @@
+"""
+Core.Pages.Productos.productos - Interfaz de productos
+"""
+
+import tkinter as tk
+from tkinter import tk, messagebox, END ttk
+
+from Core.Pages.Productos.precios_tab import PreciosTab
+from Core.Pages.Productos.intercambios_tab import IntercambiosTab
+from Core.Backends.ventas_backend import VentasBackend
+
+
+class ProductosFrame(ttk.Frame):
+    """Frame de productos"""
+    
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.backend = VentasBackend()
+        self.setup_ui()
+    
+    def setup_ui(self):
+        """Configura la interfaz"""
+        self.notebook = ttk.Notebook(self)
+        self.notebook.pack(fill=tk.BOTH, expand=True)
+        
+        self.precios_tab = PreciosTab(self.notebook, self.backend)
+        self.notebook.add(self.precios_tab, text="💰 Precios de Venta")
+        
+        self.intercambios_tab = IntercambiosTab(self.notebook)
+        self.notebook.add(self.intercambios_tab, text="🔄 Intercambios")

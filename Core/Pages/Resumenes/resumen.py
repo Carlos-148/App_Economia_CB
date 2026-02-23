@@ -1,0 +1,64 @@
+"""
+Core.Pages.Resumenes.resumen - Interfaz de resúmenes
+"""
+
+import tkinter as tk
+from tkinter import ttk, messagebox
+from ttkbootstrap import Frame, Notebook
+from ttkbootstrap.constants import LEFT, RIGHT, X, Y, BOTH
+
+from Core.Pages.Resumenes.inventario_tab import InventarioTab
+from Core.Pages.Resumenes.contabilidad_tab import ContabilidadTab
+from Core.Pages.Resumenes.dashboard import DashboardTab
+from Core.Backends.inventario_backend import InventarioBackend
+from Core.Common.logger import setup_logger
+from Core.Styles.modern_styles import ModernStyleManager
+from Core.Styles.base_components import BaseFrame, StyledLabel
+
+logger = setup_logger()
+
+
+class ResumenesFrame(BaseFrame):
+    """Frame de resúmenes financieros"""
+    
+    def __init__(self, parent):
+        from Core.Common.config import load_config
+        config = load_config()
+        theme = config.get("theme", "solar")
+        
+        super().__init__(parent, theme_name=theme)
+        self.logger = setup_logger()
+        self.backend = InventarioBackend()
+        
+        ModernStyleManager.configure_modern_styles(self.winfo_toplevel().style, theme)
+        
+        self.setup_ui()
+        self.logger.info("ResumenesFrame inicializado")
+    
+    def setup_ui(self):
+        """Configura la interfaz"""
+        main = Frame(self)
+        main.pack(fill=BOTH, expand=True, padx=15, pady=15)
+        
+        # Header
+        title = StyledLabel(
+            self,
+            text="📊 Resúmenes Financieros",
+            label_type="title",
+            theme_name=self.theme_name
+        )
+        title.set_accent()
+        title.pack(anchor="w", pady=(0, 20), padx=20)
+        
+        # Tabs
+        self.notebook = Notebook(main)
+        self.notebook.pack(fill=BOTH, expand=True)
+        
+        self.inv_tab = InventarioTab(self.notebook, self.backend)
+        self.notebook.add(self.inv_tab, text="📦 Inventario")
+        
+        self.contabilidad_tab = ContabilidadTab(self.notebook)
+        self.notebook.add(self.contabilidad_tab, text="💰 Contabilidad")
+        
+        self.dashboard_tab = DashboardTab(self.notebook)
+        self.notebook.add(self.dashboard_tab, text="📈 Dashboard")

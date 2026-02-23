@@ -1,0 +1,154 @@
+"""
+Core.Pages.Resumenes.contabilidad_tab - Tab de contabilidad
+"""
+
+import tkinter as tk
+from tkinter import tk, messagebox, END ttk
+from decimal import Decimal
+
+from Core.Backends.gastos_backend import GastosBackend
+from Core.Backends.ventas_backend import VentasBackend
+from Core.Common.logger import setup_logger
+
+logger = setup_logger()
+
+
+class ContabilidadTab(ttk.Frame):
+    """Tab de contabilidad"""
+    
+    def __init__(self, parent, backend):
+        super().__init__(parent)
+        self.backend = backend
+        self.gastos_backend = GastosBackend()
+        self.ventas_backend = VentasBackend()
+        self.logger = setup_logger()
+        
+        self.setup_ui()
+        self.load_contabilidad()
+    
+    def setup_ui(self):
+        """Configura la interfaz"""
+        main = ttk.Frame(self)
+        main.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
+        
+        # Resumen
+        resumen_card = tk.LabelFrame(
+            main,
+            text="📈 Resumen",
+            font=("Segoe UI", 12, "bold"),
+            bg="white",
+            padx=15,
+            pady=15,
+            fg="#0078d4",
+        )
+        resumen_card.pack(fill=tk.X, pady=(0, 15))
+        
+        indicators_frame = ttk.Frame(resumen_card)
+        indicators_frame.pack(fill=tk.X)
+        
+        for i, (label, attr_name) in enumerate([
+            ("💵 Inversiones", "inversiones_label"),
+            ("💰 Ganancias", "ganancias_label"),
+            ("💸 Gastos", "gastos_label"),
+        ]):
+            frame = tk.Frame(indicators_frame, bg="white", relief=tk.RAISED, bd=1)
+            frame.grid(row=0, column=i, sticky="nsew", padx=10, pady=10, ipadx=10, ipady=10)
+            indicators_frame.grid_columnconfigure(i, weight=1)
+            
+            tk.Label(frame, text=label, font=("Segoe UI", 10, "bold"), bg="white").pack(anchor="w")
+            value_label = tk.Label(frame, text="$0.00", font=("Segoe UI", 14, "bold"), bg="white", fg="#0078d4")
+            value_label.pack(anchor="w", pady=(5, 0))
+            
+            setattr(self, attr_name, value_label)
+        
+        # Inventario
+        inv_card = tk.LabelFrame(main, text="📦 Inversión en Inventario", font=("Segoe UI", 12, "bold"), bg="white", padx=10, pady=10)
+        inv_card.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+        
+        cols = ("Producto", "Cantidad", "Costo Unit.", "Total")
+        self.inventario_tree = ttk.Treeview(inv_card, columns=cols, show="headings", height=10)
+        
+        for c in cols:
+            self.inventario_tree.heading(c, text=c)
+        
+        self.inventario_tree.column("Producto", width=200)
+        self.inventario_tree.column("Cantidad", width=100, anchor=tk.CENTER)
+        self.inventario_tree.column("Costo Unit.", width=100, anchor=tk.E)
+        self.inventario_tree.column("Total", width=150, anchor=tk.E)
+        
+        self.inventario_tree.pack(fill=tk.BOTH, expand=True)
+        
+        # Gastos
+        mov_card = tk.LabelFrame(main, text="📜 Gastos Recientes", font=("Segoe UI", 12, "bold"), bg="white", padx=10, pady=10)
+        mov_card.pack(fill=tk.BOTH, expand=True)
+        
+        mov_cols = ("Fecha", "Tipo", "Descripción", "Monto")
+        self.movimientos_tree = ttk.Treeview(mov_card, columns=mov_cols, show="headings", height=8)
+        
+        for c in mov_cols:
+            self.movimientos_tree.heading(c, text=c)
+        
+        self.movimientos_tree.column("Fecha", width=120, anchor=tk.CENTER)
+        self.movimientos_tree.column("Tipo", width=80, anchor=tk.CENTER)
+        self.movimientos_tree.column("Descripción", width=300)
+        self.movimientos_tree.column("Monto", width=100, anchor=tk.E)
+        
+        self.movimientos_tree.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        tk.Button(mov_card, text="🔄 Actualizar", command=self.load_contabilidad, bg="#0078d4", fg="white", font=("Segoe UI", 10, "bold")).pack(side=tk.RIGHT, pady=(10, 0))
+    
+    def load_contabilidad(self):
+        """Carga contabilidad"""
+        try:
+            for item in self.inventario_tree.get_children():
+                self.inventario_tree.delete(item)
+            
+            for item in self.movimientos_tree.get_children():
+                self.movimientos_tree.delete(item)
+            
+            inventario = self.backend.get_inventario_para_resumen()
+            total_inv = Decimal(0)
+            
+            for item in inventario:
+                total_inv += Decimal(str(item["total_valor"]))
+                self.inventario_tree.insert(
+                    "",
+                    tk.END,
+                    values=(
+                        item["producto"],
+                        item["cantidad_display"],
+                        item["costo_promedio_display"],
+                        f"${item['total_valor']:.2f}"
+                    )
+                )
+            
+            # Gastos recientes
+            gastos = self.gastos_backend.get_gastos_recientes(30)
+            
+            for g in gastos:
+                if g["type"] == "money":
+                    desc = g.get("descripcion")
+                    monto = float(g.get("monto") or 0)
+                    tipo = "💵"
+                else:
+                    desc = f"{g.get('producto')} — {g.get('cantidad')}{g.get('unidad')}"
+                    monto = g.get("monto") or 0
+                    tipo = "📦"
+                
+                self.movimientos_tree.insert(
+                    "",
+                    tk.END,
+                    values=(g.get("fecha"), tipo, desc, f"${float(monto):.2f}")
+                )
+            
+            # Actualizar labels
+            self.inversiones_label.config(text=f"${float(total_inv):.2f}")
+            
+            total_gastos = Decimal(str(self.gastos_backend.get_total_gastos()))
+            self.gastos_label.config(text=f"${float(total_gastos):.2f}")
+            
+            ganancias = total_inv - total_gastos
+            self.ganancias_label.config(text=f"${float(ganancias):.2f}")
+        
+        except Exception as e:
+            logger.error(f"Error cargando contabilidad: {e}")

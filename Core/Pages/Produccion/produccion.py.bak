@@ -1,0 +1,480 @@
+"""
+Core.Pages.Produccion.produccion - Interfaz de gestión de producción
+"""
+
+from ttkbootstrap import Notebook, Treeview, END
+from ttkbootstrap.constants import LEFT, RIGHT, X, Y, BOTH
+from tkinter import messagebox, simpledialog
+import tkinter as tk
+
+from Core.Backends.produccion_backend import ProduccionBackend
+from Core.Backends.inventario_backend import InventarioBackend
+from Core.Common.logger import setup_logger
+from Core.Common.units import get_unit_choices
+from Core.Styles.modern_styles import ModernStyleManager
+from Core.Styles.base_components import (
+    BaseFrame, StyledLabel, StyledEntry, StyledCombobox,
+    CardFrame
+)
+
+logger = setup_logger()
+
+
+class ProduccionFrame(BaseFrame):
+    """Frame de gestión de producción"""
+    
+    def __init__(self, parent):
+        from Core.Common.config import load_config
+        config = load_config()
+        theme = config.get("theme", "solar")
+        
+        super().__init__(parent, theme_name=theme)
+        
+        self.backend = ProduccionBackend()
+        self.inv_backend = InventarioBackend()
+        self.logger = setup_logger()
+        
+        ModernStyleManager.configure_modern_styles(self.winfo_toplevel().style, theme)
+        
+        self.subproductos_map = {}
+        self.selected_subproducto_id = None
+        
+        self.setup_ui()
+        self.reload_inventario()
+        self.load_subproductos()
+        self.load_productos_finales()
+    
+    def setup_ui(self):
+        """Configura la interfaz"""
+        
+        # Header
+        title = StyledLabel(
+            self,
+            text="🏭 Gestión de Producción",
+            label_type="title",
+            theme_name=self.theme_name
+        )
+        title.set_accent()
+        title.pack(anchor="w", pady=(0, 20), padx=20)
+        
+        # Notebook
+        notebook = Notebook(self)
+        notebook.pack(fill=BOTH, expand=True, padx=20, pady=(0, 20))
+        
+        # === TAB PRODUCTOS FINALES ===
+        self.tab_productos_finales = tk.Frame(notebook, bg=self.bg_color)
+        notebook.add(self.tab_productos_finales, text="📦 Productos Finales")
+        
+        pf_title = StyledLabel(
+            self.tab_productos_finales,
+            text="Productos Finales Existentes",
+            label_type="heading",
+            theme_name=self.theme_name
+        )
+        pf_title.set_accent()
+        pf_title.pack(anchor="w", pady=(10, 10), padx=10)
+        
+        cols_pf = ("ID", "Nombre", "Costo/U", "Precio")
+        self.pf_tree = Treeview(
+            self.tab_productos_finales,
+            columns=cols_pf,
+            show="headings",
+            height=12
+        )
+        
+        for c in cols_pf:
+            self.pf_tree.heading(c, text=c)
+            self.pf_tree.column(c, width=100)
+        
+        self.pf_tree.pack(fill=BOTH, expand=True, padx=10, pady=(0, 10))
+        
+        tk.Button(
+            self.tab_productos_finales,
+            text="🔄 Actualizar",
+            command=self.load_productos_finales,
+            bg="#17a2b8", fg="white", relief="flat", cursor="hand2", bd=0
+        ).pack(anchor="e", padx=10, pady=(0, 10))
+        
+        # === TAB SUBPRODUCTOS ===
+        self.tab_crear_sub = tk.Frame(notebook, bg=self.bg_color)
+        notebook.add(self.tab_crear_sub, text="⚙️ Crear Subproductos")
+        
+        container = BaseFrame(self.tab_crear_sub, theme_name=self.theme_name)
+        container.pack(fill=BOTH, expand=True, padx=10, pady=10)
+        
+        # Inventario
+        left_card = CardFrame(container, title="📦 Productos Disponibles", theme_name=self.theme_name)
+        left_card.pack(side=LEFT, fill=BOTH, expand=True, padx=(0, 10))
+        
+        cols_inv = ("Producto", "Stock", "Unidad")
+        self.inv_tree = Treeview(left_card, columns=cols_inv, show="headings", height=18)
+        
+        for c in cols_inv:
+            self.inv_tree.heading(c, text=c)
+            self.inv_tree.column(c, width=100)
+        
+        self.inv_tree.pack(fill=BOTH, expand=True, padx=0, pady=(0, 10))
+        
+        tk.Button(
+            left_card,
+            text="🔄 Refrescar",
+            command=self.reload_inventario,
+            bg="#17a2b8", fg="white", relief="flat", cursor="hand2", bd=0
+        ).pack(fill=X, padx=0, pady=(0, 0))
+        
+        # Subproductos
+        center_card = CardFrame(container, title="⚡ Subproductos", theme_name=self.theme_name)
+        center_card.pack(side=LEFT, fill=BOTH, expand=True, padx=(0, 10))
+        
+        cols_sub = ("ID", "Nombre")
+        self.subproductos_tree = Treeview(center_card, columns=cols_sub, show="headings", height=10)
+        
+        for c in cols_sub:
+            self.subproductos_tree.heading(c, text=c)
+            self.subproductos_tree.column(c, width=100)
+        
+        self.subproductos_tree.pack(fill=BOTH, expand=True, padx=0, pady=(0, 10))
+        self.subproductos_tree.bind("<<TreeviewSelect>>", self.on_subproducto_select)
+        
+        btn_frame = BaseFrame(center_card, theme_name=self.theme_name)
+        btn_frame.pack(fill=X)
+        
+        tk.Button(
+            btn_frame,
+            text="➕ Nuevo",
+            command=self.open_new_subproducto_window,
+            bg="#28a745", fg="white", relief="flat", cursor="hand2", bd=0
+        ).pack(side=LEFT, padx=(0, 5), fill=X, expand=True)
+        
+        # Detalles
+        right_card = CardFrame(container, title="📊 Detalle", theme_name=self.theme_name)
+        right_card.pack(side=LEFT, fill=BOTH, expand=True)
+        
+        self.lbl_sub_nombre = StyledLabel(
+            right_card,
+            text="(Ninguno)",
+            label_type="heading",
+            theme_name=self.theme_name
+        )
+        self.lbl_sub_nombre.set_accent()
+        self.lbl_sub_nombre.pack(anchor="w", padx=6, pady=(6, 10))
+        
+        ing_label = StyledLabel(
+            right_card,
+            text="Ingredientes:",
+            label_type="normal",
+            theme_name=self.theme_name
+        )
+        ing_label.set_accent()
+        ing_label.pack(anchor="w", padx=6, pady=(0, 5))
+        
+        cols_i = ("Producto", "Cantidad", "Unidad")
+        self.sub_ing_tree = Treeview(right_card, columns=cols_i, show="headings", height=6)
+        
+        for c in cols_i:
+            self.sub_ing_tree.heading(c, text=c)
+            self.sub_ing_tree.column(c, width=80)
+        
+        self.sub_ing_tree.pack(fill=BOTH, expand=True, padx=6, pady=(0, 10))
+        
+        # Producción
+        prod_label = StyledLabel(
+            right_card,
+            text="Unidades a producir:",
+            label_type="normal",
+            theme_name=self.theme_name
+        )
+        prod_label.pack(anchor="w", padx=6, pady=(10, 2))
+        
+        self.unidades_entry = StyledEntry(right_card, theme_name=self.theme_name, width=12)
+        self.unidades_entry.pack(anchor="w", padx=6, pady=(0, 10))
+        
+        calc_btn_frame = BaseFrame(right_card, theme_name=self.theme_name)
+        calc_btn_frame.pack(fill=X, padx=6, pady=(0, 10))
+        
+        tk.Button(
+            calc_btn_frame,
+            text="✅ Producir",
+            command=self.on_produce,
+            bg="#28a745", fg="white", relief="flat", cursor="hand2", bd=0
+        ).pack(side=LEFT, fill=X, expand=True)
+    
+    def reload_inventario(self):
+        """Recarga inventario"""
+        try:
+            for i in self.inv_tree.get_children():
+                self.inv_tree.delete(i)
+            
+            inv = self.inv_backend.get_inventario_para_resumen()
+            for item in inv:
+                self.inv_tree.insert(
+                    "",
+                    END,
+                    values=(item["producto"], item["cantidad_display"], item["unidad_display"])
+                )
+        except Exception as e:
+            self.logger.error(f"Error recargando inventario: {e}")
+    
+    def load_subproductos(self):
+        """Carga subproductos"""
+        try:
+            for i in self.subproductos_tree.get_children():
+                self.subproductos_tree.delete(i)
+            
+            subs = self.backend.get_subproductos_disponibles()
+            self.subproductos_map.clear()
+            
+            for s in subs:
+                sid = s['id']
+                self.subproductos_map[sid] = s
+                self.subproductos_tree.insert("", END, iid=str(sid), values=(sid, s.get('nombre')))
+        except Exception as e:
+            messagebox.showerror("Error", f"Error cargando subproductos: {e}")
+    
+    def load_productos_finales(self):
+        """Carga productos finales"""
+        try:
+            for i in self.pf_tree.get_children():
+                self.pf_tree.delete(i)
+            
+            pf_list = self.backend.get_productos_finales_info()
+            
+            for p in pf_list:
+                pid = p.get("id")
+                name = p.get("nombre")
+                costo = p.get("costo_unitario", 0.0)
+                precio = p.get("precio_venta", 0.0) or 0.0
+                
+                self.pf_tree.insert(
+                    "",
+                    END,
+                    values=(pid, name, f"${float(costo):.4f}", f"${float(precio):.2f}")
+                )
+        except Exception as e:
+            self.logger.error(f"Error cargando productos finales: {e}")
+    
+    def on_subproducto_select(self, event):
+        """Selecciona un subproducto"""
+        sel = self.subproductos_tree.selection()
+        if not sel:
+            return
+        
+        sid = int(sel[0])
+        self.selected_subproducto_id = sid
+        sub = self.subproductos_map.get(sid, {})
+        
+        self.lbl_sub_nombre.config(text=sub.get('nombre') or "(Sin nombre)")
+        
+        try:
+            self.sub_ing_tree.delete(*self.sub_ing_tree.get_children())
+            ings = self.backend.get_subproducto_ingredientes(sid)
+            
+            for ing in ings:
+                self.sub_ing_tree.insert(
+                    "",
+                    END,
+                    values=(ing['producto_ingrediente'], ing['cantidad_usada'], ing['unidad_usada'])
+                )
+        except Exception as e:
+            self.logger.error(f"Error cargando detalle: {e}")
+    
+    def open_new_subproducto_window(self):
+        """Abre ventana para crear subproducto"""
+        win = tk.Toplevel(self)
+        win.title("➕ Nuevo Subproducto")
+        win.geometry("640x500")
+        win.transient(self.winfo_toplevel())
+        win.grab_set()
+        win.configure(bg=self.bg_color)
+        
+        main_frame = BaseFrame(win, theme_name=self.theme_name)
+        main_frame.pack(fill=BOTH, expand=True, padx=15, pady=15)
+        
+        title = StyledLabel(
+            main_frame,
+            text="Nuevo Subproducto",
+            label_type="heading",
+            theme_name=self.theme_name
+        )
+        title.set_accent()
+        title.pack(anchor="w", pady=(0, 15))
+        
+        name_label = StyledLabel(
+            main_frame,
+            text="Nombre:",
+            label_type="normal",
+            theme_name=self.theme_name
+        )
+        name_label.pack(anchor="w", pady=(0, 5))
+        
+        name_entry = StyledEntry(main_frame, theme_name=self.theme_name)
+        name_entry.pack(fill=X, pady=(0, 15))
+        
+        # Ingredientes
+        ing_title = StyledLabel(
+            main_frame,
+            text="Agregar Ingredientes",
+            label_type="normal",
+            theme_name=self.theme_name
+        )
+        ing_title.set_accent()
+        ing_title.pack(anchor="w", pady=(0, 10))
+        
+        ing_input_frame = BaseFrame(main_frame, theme_name=self.theme_name)
+        ing_input_frame.pack(fill=X, pady=(0, 10))
+        
+        prod_label = StyledLabel(ing_input_frame, text="Producto:", label_type="small", theme_name=self.theme_name)
+        prod_label.grid(row=0, column=0, sticky="w", padx=5)
+        
+        prod_combo = StyledCombobox(
+            ing_input_frame,
+            values=[i['producto'] for i in self.inv_backend.get_inventario_para_resumen()],
+            theme_name=self.theme_name,
+            width=25,
+            state="readonly"
+        )
+        prod_combo.grid(row=0, column=1, sticky="ew", padx=5)
+        
+        cant_label = StyledLabel(ing_input_frame, text="Cantidad:", label_type="small", theme_name=self.theme_name)
+        cant_label.grid(row=1, column=0, sticky="w", padx=5, pady=(5, 0))
+        
+        cant_entry = StyledEntry(ing_input_frame, theme_name=self.theme_name, width=12)
+        cant_entry.grid(row=1, column=1, sticky="w", padx=5, pady=(5, 0))
+        
+        unidad_label = StyledLabel(ing_input_frame, text="Unidad:", label_type="small", theme_name=self.theme_name)
+        unidad_label.grid(row=0, column=2, sticky="w", padx=5)
+        
+        unidad_combo = StyledCombobox(
+            ing_input_frame,
+            values=get_unit_choices(),
+            theme_name=self.theme_name,
+            width=12,
+            state="readonly"
+        )
+        unidad_combo.grid(row=0, column=3, sticky="ew", padx=5)
+        
+        # Preview
+        preview_label = StyledLabel(
+            main_frame,
+            text="Ingredientes:",
+            label_type="normal",
+            theme_name=self.theme_name
+        )
+        preview_label.pack(anchor="w", pady=(10, 5))
+        
+        cols_preview = ("Producto", "Cantidad", "Unidad")
+        preview = Treeview(main_frame, columns=cols_preview, show="headings", height=6)
+        
+        for c in cols_preview:
+            preview.heading(c, text=c)
+            preview.column(c, width=100)
+        
+        preview.pack(fill=BOTH, expand=True, pady=(0, 15))
+        
+        def add_ing():
+            p = prod_combo.get().strip()
+            c = cant_entry.get().strip()
+            u = unidad_combo.get().strip()
+            
+            if not p or not c or not u:
+                messagebox.showwarning("Aviso", "Completa todos los campos")
+                return
+            
+            try:
+                cf = float(c)
+                preview.insert("", END, values=(p, f"{cf}", u))
+                prod_combo.set("")
+                cant_entry.delete(0, END)
+                unidad_combo.set("")
+            except ValueError:
+                messagebox.showerror("Error", "Cantidad inválida")
+        
+        tk.Button(
+            ing_input_frame,
+            text="➕ Agregar",
+            command=add_ing,
+            bg="#28a745", fg="white", relief="flat", cursor="hand2", bd=0
+        ).grid(row=1, column=3, sticky="ew", padx=5, pady=(5, 0))
+        
+        def on_save():
+            name = name_entry.get().strip()
+            
+            if not name:
+                messagebox.showwarning("Aviso", "Ingresa un nombre")
+                return
+            
+            ingredientes = []
+            for it in preview.get_children():
+                prod, cant_str, unidad = preview.item(it, "values")
+                ingredientes.append({"producto": prod, "cantidad": float(cant_str), "unidad": unidad})
+            
+            if not ingredientes:
+                messagebox.showwarning("Aviso", "Agrega ingredientes")
+                return
+            
+            try:
+                costo = self.backend.crear_subproducto(name, ingredientes)
+                messagebox.showinfo("✅ Éxito", f"Subproducto creado. Costo: ${float(costo):.2f}")
+                win.destroy()
+                self.load_subproductos()
+                self.reload_inventario()
+            except Exception as e:
+                messagebox.showerror("Error", f"Error: {e}")
+        
+        btn_frame = BaseFrame(main_frame, theme_name=self.theme_name)
+        btn_frame.pack(fill=X)
+        
+        tk.Button(
+            btn_frame,
+            text="💾 Guardar",
+            command=on_save,
+            bg="#28a745", fg="white", relief="flat", cursor="hand2", bd=0
+        ).pack(side=LEFT, padx=(0, 10), fill=X, expand=True)
+        
+        tk.Button(
+            btn_frame,
+            text="❌ Cancelar",
+            command=win.destroy,
+            bg="#6c757d", fg="white", relief="flat", cursor="hand2", bd=0
+        ).pack(side=LEFT, fill=X, expand=True)
+    
+    def on_produce(self):
+        """Inicia producción"""
+        if not self.selected_subproducto_id:
+            messagebox.showwarning("Aviso", "Selecciona un subproducto")
+            return
+        
+        try:
+            units_text = self.unidades_entry.get().strip()
+            unidades = int(float(units_text)) if units_text else 0
+        except ValueError:
+            messagebox.showerror("Error", "Unidades inválidas")
+            return
+        
+        if unidades <= 0:
+            messagebox.showwarning("Aviso", "Unidades debe ser > 0")
+            return
+        
+        try:
+            est = self.backend.estimar_costo_produccion(self.selected_subproducto_id, unidades)
+            
+            if not messagebox.askyesno(
+                "Confirmar",
+                f"Costo estimado: ${est['costo_total_masa']:.2f}\n"
+                f"Costo/u: ${est['costo_unitario']:.4f}\n\n¿Proceder?"
+            ):
+                return
+            
+            res = self.backend.crear_produccion_run(self.selected_subproducto_id, unidades)
+            messagebox.showinfo(
+                "✅ OK",
+                f"Producción creada\n"
+                f"Costo: ${res['costo_total_masa']:.2f}"
+            )
+            
+            self.unidades_entry.delete(0, END)
+            self.reload_inventario()
+            self.load_subproductos()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error: {e}")

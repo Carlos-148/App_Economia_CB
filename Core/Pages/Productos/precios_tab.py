@@ -19,7 +19,7 @@ class PreciosTab(ttk.Frame):
         super().__init__(parent)
         self.backend = ProduccionBackend()  # ✅ Usar ProduccionBackend
         self.editing_entry = None
-        self.column_ids = ("Producto", "Costo/U", "Precio Venta", "Ganancia", "% Ganancia")
+        self.column_ids = ("Producto", "Costo/U", "Precio Venta", "Ganancia", "Disponibles", "% Ganancia")
         self.product_ids = {}  # Mapeo de producto a ID
         self.setup_ui()
         self.load_precios()
@@ -47,10 +47,11 @@ class PreciosTab(ttk.Frame):
             self.precios_tree.heading(c, text=c)
         
         self.precios_tree.column("Producto", width=250)
-        self.precios_tree.column("Costo/U", width=120, anchor=tk.E)
-        self.precios_tree.column("Precio Venta", width=140, anchor=tk.E)
-        self.precios_tree.column("Ganancia", width=120, anchor=tk.E)
-        self.precios_tree.column("% Ganancia", width=120, anchor=tk.E)
+        self.precios_tree.column("Costo/U", width=100, anchor=tk.E)
+        self.precios_tree.column("Precio Venta", width=100, anchor=tk.E)
+        self.precios_tree.column("Ganancia", width=100, anchor=tk.E)
+        self.precios_tree.column("Disponibles", width=100, anchor=tk.E)
+        self.precios_tree.column("% Ganancia", width=100, anchor=tk.E)
         
         self.precios_tree.pack(fill=tk.BOTH, expand=True)
 
@@ -129,7 +130,7 @@ class PreciosTab(ttk.Frame):
                 
                 # ✅ IMPORTANTE: Usar costo_unitario_total (costo del producto final)
                 costo_unitario = float(p.get("costo_unitario_total", 0) or 0)
-                
+                unidades_disponibles = float(p.get("unidades_producidas") or 0)
                 # Precio de venta puede estar vacío
                 precio_venta = p.get("precio_venta")
                 precio_venta_float = float(precio_venta) if precio_venta is not None and precio_venta != 0 else 0.0
@@ -156,6 +157,7 @@ class PreciosTab(ttk.Frame):
                         nombre,
                         f"${costo_unitario:.2f}",
                         f"${precio_venta_float:.2f}" if precio_venta_float > 0 else "(sin precio)",
+                        unidades_disponibles,
                         ganancia_display,
                         pct_display
                     ),

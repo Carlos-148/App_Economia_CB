@@ -128,7 +128,7 @@ class RegistrarVentaTab(ttk.Frame):
         
         dialog = tk.Toplevel(self)
         dialog.title("Agregar Producto")
-        dialog.geometry("400x150")
+        dialog.geometry("400x250")
         dialog.transient(self.winfo_toplevel())
         dialog.grab_set()
         

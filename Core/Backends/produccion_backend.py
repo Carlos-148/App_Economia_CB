@@ -500,7 +500,8 @@ class ProduccionBackend:
                     self.logger.debug(
                         f"\n📊 Calculando costo para producto: {producto['nombre']}"
                     )
-                    
+
+
                     for rel in relaciones:
                         subproducto_id = rel['subproducto_id']
                         nombre_sub = rel['nombre']
@@ -508,12 +509,9 @@ class ProduccionBackend:
                         
                         # ✅ OBTENER COSTO UNITARIO DE LA ÚLTIMA PRODUCCIÓN
                         cursor.execute(
-                            """SELECT costo_unitario FROM subproducto_producciones 
-                            WHERE subproducto_id = %s 
-                            ORDER BY created_at DESC 
-                            LIMIT 1""",
-                            (subproducto_id,)
-                        )
+                            """SELECT costo_unitario FROM subproducto_producciones WHERE subproducto_id = %s
+                                ORDER BY created_at DESC 
+                                LIMIT 1""",(subproducto_id,))
                         
                         prod_result = cursor.fetchone()
                         
@@ -538,7 +536,20 @@ class ProduccionBackend:
                             self.logger.warning(
                                 f"  ⚠️ {nombre_sub}: No tiene producciones registradas"
                             )
-                    
+
+                        cursor.execute(
+                            """SELECT unidades_producidas FROM subproducto_producciones WHERE subproducto_id = %s
+                            ORDER BY created_at DESC
+                            """,(subproducto_id))
+                        resultado = cursor.fetchone()
+                        if resultado:
+                            unidades_disponibles = float(resultado.get('unidades_producidas') or 0)
+                            detalles.append({
+                                'nombre': nombre_sub,
+                                'unidades_producidas': float(unidades_disponibles)
+                            })
+
+
                     self.logger.debug(
                         f"  ✅ COSTO FINAL PRODUCTO: ${float(costo_total):.2f}\n"
                     )

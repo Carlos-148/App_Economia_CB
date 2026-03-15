@@ -38,6 +38,8 @@ from Core.Pages.Gastos.gastos import GastosFrame
 from Core.Pages.Settings.settings import SettingsFrame
 
 from Core.Common.database import DatabaseManager
+from Core.Pages.Settings.setup_inicial import SetupInicial
+from Core.Common.database import revisar_setup_completado
 
 logger = setup_logger()
 
@@ -71,11 +73,15 @@ class MainApplication:
         Args:
             root: Ventana raíz de ttkbootstrap
         """
+        
         self.root = root
         self.root.title(APP_TITLE)
         self.root.geometry(f"{DEFAULT_WINDOW_WIDTH}x{DEFAULT_WINDOW_HEIGHT}")
         self.root.minsize(1200, 700)
         
+        if not revisar_setup_completado():
+            setup_window = SetupInicial(root)
+            root.wait_window(setup_window)
         # Estado de la aplicación
         self.logger = setup_logger()
         self.config = load_config()
@@ -326,9 +332,9 @@ class MainApplication:
         self.logger.info("🌀 Recargando aplicación...")
         messagebox.showinfo(
             "🔄 Recarga",
-            "La aplicación se reiniciará en 2 segundos..."
+            "La aplicación se reiniciará en 1 segundos..."
         )
-        self.root.after(2000, self._do_reload)
+        self.root.after(1000, self._do_reload)
     
     def _do_reload(self):
         """Ejecuta la recarga"""

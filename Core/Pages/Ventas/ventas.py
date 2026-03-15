@@ -3,17 +3,10 @@ from ttkbootstrap.constants import LEFT, RIGHT, X, Y, BOTH
 Core.Pages.Ventas.ventas - Interfaz de gestión de ventas
 from ttkbootstrap.constants import LEFT, RIGHT, X, Y, BOTH
 """
-from ttkbootstrap.constants import LEFT, RIGHT, X, Y, BOTH
-
-from ttkbootstrap.constants import LEFT, RIGHT, X, Y, BOTH
-import tkinter as tk
-from ttkbootstrap.constants import LEFT, RIGHT, X, Y, BOTH
 import tkinter as tk
 from ttkbootstrap.constants import LEFT, RIGHT, X, Y, BOTH
 from tkinter import messagebox, END, ttk
-from ttkbootstrap.constants import LEFT, RIGHT, X, Y, BOTH
 from ttkbootstrap import Notebook
-from ttkbootstrap.constants import LEFT, RIGHT, X, Y, BOTH
 
 from Core.Pages.Ventas.clientes_tab import ClientesTab
 from Core.Pages.Ventas.registro_tab import RegistrarVentaTab

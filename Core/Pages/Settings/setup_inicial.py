@@ -251,13 +251,13 @@ class SetupInicial(tk.Toplevel):
     def agregar_producto(self):
         """Agrega un producto a la lista"""
         try:
-            nombre = self.entry_producto.get().strip()
+            producto = self.entry_producto.get().strip()
             cantidad_str = self.entry_cantidad.get().strip()
             unidad = self.combo_unidad.get()
             costo_str = self.entry_costo.get().strip()
             
             # Validaciones
-            if not nombre:
+            if not producto:
                 messagebox.showwarning("Validación", "Ingresa el nombre del producto")
                 return
             
@@ -283,7 +283,7 @@ class SetupInicial(tk.Toplevel):
             # Agregar a lista interna
             total = cantidad * costo
             producto = {
-                'nombre': nombre,
+                'producto': producto,
                 'cantidad': cantidad,
                 'unidad': unidad,
                 'costo': costo,
@@ -293,7 +293,7 @@ class SetupInicial(tk.Toplevel):
             
             # Actualizar treeview
             self.tree_productos.insert("", tk.END, values=(
-                nombre,
+                producto,
                 f"{cantidad:.2f}",
                 unidad,
                 f"${costo:.2f}",
@@ -307,7 +307,7 @@ class SetupInicial(tk.Toplevel):
             self.entry_costo.delete(0, tk.END)
             self.entry_producto.focus()
             
-            logger.info(f"✅ Producto agregado: {nombre}")
+            logger.info(f"✅ Producto agregado: {producto}")
         
         except ValueError as e:
             messagebox.showerror("Error", str(e))
@@ -406,15 +406,15 @@ class SetupInicial(tk.Toplevel):
         """Guarda un producto inicial en inventario"""
         try:
             # Agregar a inventario
-            self.inventory_backend.agregar_producto(
-                nombre=producto['nombre'],
+            self.agregar_producto(
+                producto=producto['producto'],
                 cantidad_stock=producto['cantidad'],
                 unidad=producto['unidad'],
                 costo_promedio_ponderado=producto['costo'],
                 tipo_producto="Inicial"
             )
             
-            logger.info(f"✅ Producto inicial guardado: {producto['nombre']}")
+            logger.info(f"✅ Producto inicial guardado: {producto['producto']}")
         
         except Exception as e:
             logger.error(f"Error guardando producto: {e}")

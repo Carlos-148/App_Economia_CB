@@ -348,3 +348,8 @@ class InventarioBackend:
             return 0.0
         finally:
             close_connection(conn)
+
+
+
+
+        

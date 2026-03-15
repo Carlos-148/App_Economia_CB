@@ -207,12 +207,15 @@ class DatabaseSchema:
         id INT AUTO_INCREMENT PRIMARY KEY,
         venta_id INT NOT NULL,
         producto_final_id INT NOT NULL,
+        cantidades_producto INT NOT NULL,
         cantidad_vendida INT NOT NULL,
         precio_unitario_venta DECIMAL(10,2) NOT NULL,
         subtotal DECIMAL(12,2) NOT NULL,
         
+        FOREIGN kEY (subproducto_id) REFERENCES subproducto_producciones(id), 
         FOREIGN KEY (venta_id) REFERENCES ventas_cabecera(id) ON DELETE CASCADE,
         FOREIGN KEY (producto_final_id) REFERENCES productos_finales(id),
+        INDEX idx_subproducto_producciones(id),
         INDEX idx_venta (venta_id),
         INDEX idx_producto (producto_final_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
